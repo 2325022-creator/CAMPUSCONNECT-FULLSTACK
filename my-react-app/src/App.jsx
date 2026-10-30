@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useReducer } from 'react';
 import './App.css';
 
-function App() {
-  // Base State for Events
-  const [events, setEvents] = useState([
+// 1. Initial State
+const initialState = {
+  events: [
     {
       id: '1',
       title: 'Cultural Day',
@@ -22,27 +22,14 @@ function App() {
       description: 'Learn the basics of web design and create your first page layout.',
       registrations: 0
     }
-  ]);
-
-  const [favorites, setFavorites] = useState(['1']); // Initial favorite item
-  const [activeTab, setActiveTab] = useState('home'); // 'home', 'events', 'register', 'favorites'
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All Categories');
-  
-  // View Details Modal/Page State
-  const [selectedEventDetail, setSelectedEventDetail] = useState(null);
-
-  // New Event Form State
-  const [newEvent, setNewEvent] = useState({
-    title: '',
-    category: 'Tech',
-    date: '',
-    venue: '',
-    description: ''
-  });
-
-  // Student Registration Form State
-  const [regForm, setRegForm] = useState({
+  ],
+  favorites: ['1'],
+  activeTab: 'home', // 'home', 'events', 'register', 'favorites'
+  searchQuery: '',
+  selectedCategory: 'All Categories',
+  selectedEventDetail: null,
+  newEvent: { title: '', category: 'Tech', date: '', venue: '', description: '' },
+  regForm: {
     fullName: '',
     email: '',
     department: '',
@@ -52,73 +39,134 @@ function App() {
     eventId: '',
     accessibility: false,
     message: ''
-  });
+  },
+  registrationSuccess: null
+};
 
-  const [registrationSuccess, setRegistrationSuccess] = useState(null);
+// 2. Reducer Function (State update rules in one central place)
+function appReducer(state, action) {
+  switch (action.type) {
+    case 'SET_TAB':
+      return { ...state, activeTab: action.payload, selectedEventDetail: null };
 
-  // Favorites Toggle
-  const toggleFavorite = (id) => {
-    if (favorites.includes(id)) {
-      setFavorites(favorites.filter(favId => favId !== id));
-    } else {
-      setFavorites([...favorites, id]);
-    }
-  };
+    case 'TOGGLE_FAVORITE':
+      const isFav = state.favorites.includes(action.payload);
+      return {
+        ...state,
+        favorites: isFav
+          ? state.favorites.filter(id => id !== action.payload)
+          : [...state.favorites, action.payload]
+      };
 
-  // Add Event Handler
+    case 'SET_NEW_EVENT_FIELD':
+      return {
+        ...state,
+        newEvent: { ...state.newEvent, [action.field]: action.value }
+      };
+
+    case 'ADD_EVENT':
+      const createdEvent = {
+        id: String(state.events.length + 1),
+        title: state.newEvent.title,
+        category: state.newEvent.category.toUpperCase(),
+        date: state.newEvent.date,
+        venue: state.newEvent.venue,
+        description: state.newEvent.description,
+        registrations: 0
+      };
+      return {
+        ...state,
+        events: [...state.events, createdEvent],
+        newEvent: { title: '', category: 'Tech', date: '', venue: '', description: '' }
+      };
+
+    case 'DELETE_EVENT':
+      return {
+        ...state,
+        events: state.events.filter(ev => ev.id !== action.payload),
+        favorites: state.favorites.filter(id => id !== action.payload)
+      };
+
+    case 'SET_REG_FIELD':
+      return {
+        ...state,
+        regForm: { ...state.regForm, [action.field]: action.value }
+      };
+
+    case 'RESET_REG_FORM':
+      return {
+        ...state,
+        regForm: {
+          fullName: '',
+          email: '',
+          department: '',
+          yearOfStudy: '',
+          password: '',
+          attendance: 'In-person',
+          eventId: '',
+          accessibility: false,
+          message: ''
+        }
+      };
+
+    case 'SUBMIT_REGISTRATION':
+      const chosenEvent = state.events.find(ev => ev.id === state.regForm.eventId);
+      return {
+        ...state,
+        events: state.events.map(ev =>
+          ev.id === state.regForm.eventId ? { ...ev, registrations: ev.registrations + 1 } : ev
+        ),
+        registrationSuccess: {
+          studentName: state.regForm.fullName,
+          email: state.regForm.email,
+          department: state.regForm.department || 'Computer Science',
+          eventTitle: chosenEvent ? chosenEvent.title : 'Selected Event',
+          attendance: state.regForm.attendance
+        }
+      };
+
+    case 'SET_SEARCH_QUERY':
+      return { ...state, searchQuery: action.payload };
+
+    case 'SET_CATEGORY_FILTER':
+      return { ...state, selectedCategory: action.payload };
+
+    case 'RESET_FILTERS':
+      return { ...state, searchQuery: '', selectedCategory: 'All Categories' };
+
+    case 'SET_EVENT_DETAIL':
+      return { ...state, selectedEventDetail: action.payload };
+
+    default:
+      return state;
+  }
+}
+
+function App() {
+  // 3. Action Dispatcher
+  const [state, dispatch] = useReducer(appReducer, initialState);
+
+  // Handlers using dispatch({ type: '...' })
   const handleAddEventSubmit = (e) => {
     e.preventDefault();
-    if (!newEvent.title || !newEvent.date || !newEvent.venue) return;
-
-    const created = {
-      id: String(events.length + 1),
-      title: newEvent.title,
-      category: newEvent.category.toUpperCase(),
-      date: newEvent.date,
-      venue: newEvent.venue,
-      description: newEvent.description,
-      registrations: 0
-    };
-
-    setEvents([...events, created]);
-    setNewEvent({ title: '', category: 'Tech', date: '', venue: '', description: '' });
+    if (!state.newEvent.title || !state.newEvent.date || !state.newEvent.venue) return;
+    dispatch({ type: 'ADD_EVENT' });
   };
 
-  // Delete Event Handler
-  const handleDeleteEvent = (id) => {
-    setEvents(events.filter(ev => ev.id !== id));
-    setFavorites(favorites.filter(favId => favId !== id));
-  };
-
-  // Registration Submit Handler
   const handleRegistrationSubmit = (e) => {
     e.preventDefault();
-    const chosen = events.find(ev => ev.id === regForm.eventId);
-
-    // Increment registration counter
-    setEvents(events.map(ev => 
-      ev.id === regForm.eventId ? { ...ev, registrations: ev.registrations + 1 } : ev
-    ));
-
-    setRegistrationSuccess({
-      studentName: regForm.fullName,
-      email: regForm.email,
-      department: regForm.department || 'Computer Science',
-      eventTitle: chosen ? chosen.title : 'Selected Event',
-      attendance: regForm.attendance
-    });
+    dispatch({ type: 'SUBMIT_REGISTRATION' });
   };
 
-  // Filter Logic for Events
-  const filteredEvents = events.filter(ev => {
-    const matchesQuery = ev.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         ev.venue.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All Categories' || ev.category.toLowerCase() === selectedCategory.toLowerCase();
+  // Filter Logic
+  const filteredEvents = state.events.filter(ev => {
+    const matchesQuery = ev.title.toLowerCase().includes(state.searchQuery.toLowerCase()) ||
+                         ev.venue.toLowerCase().includes(state.searchQuery.toLowerCase());
+    const matchesCategory = state.selectedCategory === 'All Categories' || ev.category.toLowerCase() === state.selectedCategory.toLowerCase();
     return matchesQuery && matchesCategory;
   });
 
-  // Favorite Events List
-  const favoriteEventsList = events.filter(ev => favorites.includes(ev.id));
+  const favoriteEventsList = state.events.filter(ev => state.favorites.includes(ev.id));
 
   return (
     <div>
@@ -126,58 +174,57 @@ function App() {
       <nav className="navbar">
         <div className="nav-brand">CampusConnect</div>
         <div className="nav-menu">
-          <a href="#home" onClick={() => { setActiveTab('home'); setSelectedEventDetail(null); }}>Home</a>
-          <a href="#events" onClick={() => { setActiveTab('events'); setSelectedEventDetail(null); }}>Events</a>
-          <a href="#register" onClick={() => { setActiveTab('register'); setSelectedEventDetail(null); }}>Register</a>
+          <a href="#home" onClick={() => dispatch({ type: 'SET_TAB', payload: 'home' })}>Home</a>
+          <a href="#events" onClick={() => dispatch({ type: 'SET_TAB', payload: 'events' })}>Events</a>
+          <a href="#register" onClick={() => dispatch({ type: 'SET_TAB', payload: 'register' })}>Register</a>
           <button 
-            className={`fav-badge-btn ${activeTab === 'favorites' ? 'fav-active-btn' : ''}`}
-            onClick={() => { setActiveTab('favorites'); setSelectedEventDetail(null); }}
+            className={`fav-badge-btn ${state.activeTab === 'favorites' ? 'fav-active-btn' : ''}`}
+            onClick={() => dispatch({ type: 'SET_TAB', payload: 'favorites' })}
           >
-            Favorites ({favorites.length})
+            Favorites ({state.favorites.length})
           </button>
         </div>
       </nav>
 
-      {/* VIEW DETAILS SINGLE PAGE VIEW */}
-      {selectedEventDetail ? (
+      {/* VIEW DETAILS */}
+      {state.selectedEventDetail ? (
         <main className="main-wrapper">
-          <button className="btn btn-light btn-sm" style={{ marginBottom: '1.5rem' }} onClick={() => setSelectedEventDetail(null)}>
+          <button className="btn btn-light btn-sm" style={{ marginBottom: '1.5rem' }} onClick={() => dispatch({ type: 'SET_EVENT_DETAIL', payload: null })}>
             Back to Events
           </button>
 
           <div className="event-detail-view">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="badge-tag">{selectedEventDetail.category}</span>
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Event ID: #{selectedEventDetail.id}</span>
+              <span className="badge-tag">{state.selectedEventDetail.category}</span>
+              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Event ID: #{state.selectedEventDetail.id}</span>
             </div>
 
-            <h1 style={{ fontSize: '2rem', marginTop: '0.75rem', marginBottom: '0.5rem' }}>{selectedEventDetail.title}</h1>
-            <p style={{ color: '#64748b', fontSize: '0.95rem' }}>{selectedEventDetail.description}</p>
+            <h1 style={{ fontSize: '2rem', marginTop: '0.75rem', marginBottom: '0.5rem' }}>{state.selectedEventDetail.title}</h1>
+            <p style={{ color: '#64748b', fontSize: '0.95rem' }}>{state.selectedEventDetail.description}</p>
 
             <div className="gray-meta-box">
-              <p><strong>Date:</strong> {selectedEventDetail.date}</p>
-              <p style={{ marginTop: '0.4rem' }}><strong>Venue:</strong> {selectedEventDetail.venue}</p>
+              <p><strong>Date:</strong> {state.selectedEventDetail.date}</p>
+              <p style={{ marginTop: '0.4rem' }}><strong>Venue:</strong> {state.selectedEventDetail.venue}</p>
             </div>
 
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button 
                 className="btn btn-primary" 
                 onClick={() => {
-                  setRegForm({ ...regForm, eventId: selectedEventDetail.id });
-                  setActiveTab('register');
-                  setSelectedEventDetail(null);
+                  dispatch({ type: 'SET_REG_FIELD', field: 'eventId', value: state.selectedEventDetail.id });
+                  dispatch({ type: 'SET_TAB', payload: 'register' });
                 }}
               >
                 Register for this Event
               </button>
-              <button className="btn btn-light" onClick={() => toggleFavorite(selectedEventDetail.id)}>
-                {favorites.includes(selectedEventDetail.id) ? 'Favorited' : 'Add Favorite'}
+              <button className="btn btn-light" onClick={() => dispatch({ type: 'TOGGLE_FAVORITE', payload: state.selectedEventDetail.id })}>
+                {state.favorites.includes(state.selectedEventDetail.id) ? 'Favorited' : 'Add Favorite'}
               </button>
             </div>
           </div>
         </main>
-      ) : activeTab === 'favorites' ? (
-        /* DEDICATED FAVORITES PAGE */
+      ) : state.activeTab === 'favorites' ? (
+        /* FAVORITES PAGE */
         <main className="main-wrapper">
           <p className="section-tag">SAVED EVENTS</p>
           <h2 className="section-heading">Your Favorite Events</h2>
@@ -187,7 +234,7 @@ function App() {
             <div className="favorites-empty-box">
               <h3>No favorite events saved yet.</h3>
               <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>Browse upcoming events and click "Add Favorite" to add them here.</p>
-              <button className="btn btn-primary" style={{ marginTop: '1.25rem' }} onClick={() => setActiveTab('events')}>
+              <button className="btn btn-primary" style={{ marginTop: '1.25rem' }} onClick={() => dispatch({ type: 'SET_TAB', payload: 'events' })}>
                 Explore Events
               </button>
             </div>
@@ -208,19 +255,19 @@ function App() {
                       <button 
                         className="btn btn-blue-light btn-sm" 
                         onClick={() => {
-                          setRegForm({ ...regForm, eventId: item.id });
-                          setActiveTab('register');
+                          dispatch({ type: 'SET_REG_FIELD', field: 'eventId', value: item.id });
+                          dispatch({ type: 'SET_TAB', payload: 'register' });
                         }}
                       >
                         Register
                       </button>
-                      <button className="btn btn-danger-light btn-sm" onClick={() => toggleFavorite(item.id)}>
+                      <button className="btn btn-danger-light btn-sm" onClick={() => dispatch({ type: 'TOGGLE_FAVORITE', payload: item.id })}>
                         Remove Favorite
                       </button>
                     </div>
 
                     <div className="action-row-secondary">
-                      <button className="btn btn-dark btn-xs" onClick={() => setSelectedEventDetail(item)}>
+                      <button className="btn btn-dark btn-xs" onClick={() => dispatch({ type: 'SET_EVENT_DETAIL', payload: item })}>
                         View Details
                       </button>
                     </div>
@@ -231,28 +278,24 @@ function App() {
           )}
         </main>
       ) : (
-        /* MAIN LANDING PAGE VIEW */
+        /* MAIN LANDING PAGE */
         <>
-          {/* Hero Section */}
           <header id="home" className="hero-container">
             <p className="hero-subtitle">YOUR CAMPUS, YOUR COMMUNITY</p>
             <h1 className="hero-title">Make Your Campus Experience Count.</h1>
             <p className="hero-desc">Discover exciting events, meet new people, and make the most of your college life.</p>
             <div className="hero-actions">
-              <a href="#events" className="btn btn-primary" onClick={() => setActiveTab('events')}>Explore Events</a>
-              <a href="#register" className="btn btn-secondary" onClick={() => setActiveTab('register')}>Register for an Event</a>
+              <a href="#events" className="btn btn-primary" onClick={() => dispatch({ type: 'SET_TAB', payload: 'events' })}>Explore Events</a>
+              <a href="#register" className="btn btn-secondary" onClick={() => dispatch({ type: 'SET_TAB', payload: 'register' })}>Register for an Event</a>
             </div>
           </header>
 
-          {/* Main Content Area */}
           <main className="main-wrapper">
-            {/* Events Section */}
             <section id="events">
               <p className="section-tag">DISCOVER YOUR CAMPUS</p>
               <h2 className="section-heading">Upcoming Events</h2>
               <p className="section-subheading">Find opportunities to learn, connect, and participate.</p>
 
-              {/* Add New Event Card */}
               <div className="content-card">
                 <h3 className="card-title">Add a New Event</h3>
                 <p className="card-subtitle">Fill in the event details below.</p>
@@ -263,15 +306,15 @@ function App() {
                     <input 
                       type="text" 
                       placeholder="e.g. React Workshop" 
-                      value={newEvent.title} 
-                      onChange={e => setNewEvent({ ...newEvent, title: e.target.value })} 
+                      value={state.newEvent.title} 
+                      onChange={e => dispatch({ type: 'SET_NEW_EVENT_FIELD', field: 'title', value: e.target.value })} 
                       required 
                     />
                   </div>
 
                   <div className="form-field">
                     <label>Category *</label>
-                    <select value={newEvent.category} onChange={e => setNewEvent({ ...newEvent, category: e.target.value })}>
+                    <select value={state.newEvent.category} onChange={e => dispatch({ type: 'SET_NEW_EVENT_FIELD', field: 'category', value: e.target.value })}>
                       <option value="Tech">Tech</option>
                       <option value="Culture">Culture</option>
                       <option value="Design">Design</option>
@@ -283,8 +326,8 @@ function App() {
                     <label>Date *</label>
                     <input 
                       type="date" 
-                      value={newEvent.date} 
-                      onChange={e => setNewEvent({ ...newEvent, date: e.target.value })} 
+                      value={state.newEvent.date} 
+                      onChange={e => dispatch({ type: 'SET_NEW_EVENT_FIELD', field: 'date', value: e.target.value })} 
                       required 
                     />
                   </div>
@@ -294,8 +337,8 @@ function App() {
                     <input 
                       type="text" 
                       placeholder="e.g. Seminar Hall" 
-                      value={newEvent.venue} 
-                      onChange={e => setNewEvent({ ...newEvent, venue: e.target.value })} 
+                      value={state.newEvent.venue} 
+                      onChange={e => dispatch({ type: 'SET_NEW_EVENT_FIELD', field: 'venue', value: e.target.value })} 
                       required 
                     />
                   </div>
@@ -304,8 +347,8 @@ function App() {
                     <label>Description *</label>
                     <textarea 
                       placeholder="Describe the event" 
-                      value={newEvent.description} 
-                      onChange={e => setNewEvent({ ...newEvent, description: e.target.value })} 
+                      value={state.newEvent.description} 
+                      onChange={e => dispatch({ type: 'SET_NEW_EVENT_FIELD', field: 'description', value: e.target.value })} 
                       required 
                     />
                   </div>
@@ -316,27 +359,25 @@ function App() {
                 </form>
               </div>
 
-              {/* Search & Filter Bar */}
               <div className="filter-row">
                 <input 
                   type="text" 
                   className="filter-input" 
                   placeholder="Search events by title or venue..." 
-                  value={searchQuery} 
-                  onChange={e => setSearchQuery(e.target.value)} 
+                  value={state.searchQuery} 
+                  onChange={e => dispatch({ type: 'SET_SEARCH_QUERY', payload: e.target.value })} 
                 />
-                <select className="filter-select" value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
+                <select className="filter-select" value={state.selectedCategory} onChange={e => dispatch({ type: 'SET_CATEGORY_FILTER', payload: e.target.value })}>
                   <option value="All Categories">All Categories</option>
                   <option value="Tech">Tech</option>
                   <option value="Culture">Culture</option>
                   <option value="Design">Design</option>
                 </select>
-                <button className="btn btn-light" onClick={() => { setSearchQuery(''); setSelectedCategory('All Categories'); }}>
+                <button className="btn btn-light" onClick={() => dispatch({ type: 'RESET_FILTERS' })}>
                   Reset Filters
                 </button>
               </div>
 
-              {/* Events Grid */}
               <div className="events-grid-layout">
                 {filteredEvents.map(item => (
                   <div key={item.id} className="event-item-card">
@@ -353,23 +394,23 @@ function App() {
                         <button 
                           className="btn btn-blue-light btn-sm" 
                           onClick={() => {
-                            setRegForm({ ...regForm, eventId: item.id });
-                            setActiveTab('register');
+                            dispatch({ type: 'SET_REG_FIELD', field: 'eventId', value: item.id });
+                            dispatch({ type: 'SET_TAB', payload: 'register' });
                           }}
                         >
                           Register
                         </button>
-                        <button className="btn btn-yellow-light btn-sm" onClick={() => toggleFavorite(item.id)}>
-                          {favorites.includes(item.id) ? 'Favorited' : 'Add Favorite'}
+                        <button className="btn btn-yellow-light btn-sm" onClick={() => dispatch({ type: 'TOGGLE_FAVORITE', payload: item.id })}>
+                          {state.favorites.includes(item.id) ? 'Favorited' : 'Add Favorite'}
                         </button>
                       </div>
 
                       <div className="action-row-secondary">
-                        <button className="btn btn-dark btn-xs" onClick={() => setSelectedEventDetail(item)}>
+                        <button className="btn btn-dark btn-xs" onClick={() => dispatch({ type: 'SET_EVENT_DETAIL', payload: item })}>
                           View Details
                         </button>
                         <button className="btn btn-light btn-xs">Edit Event</button>
-                        <button className="btn btn-danger-light btn-xs" onClick={() => handleDeleteEvent(item.id)}>
+                        <button className="btn btn-danger-light btn-xs" onClick={() => dispatch({ type: 'DELETE_EVENT', payload: item.id })}>
                           Delete Event
                         </button>
                       </div>
@@ -379,7 +420,6 @@ function App() {
               </div>
             </section>
 
-            {/* Student Registration Section */}
             <section id="register" style={{ marginTop: '4rem' }}>
               <p className="section-tag">SAVE YOUR SPOT</p>
               <h2 className="section-heading">Student Event Registration</h2>
@@ -392,8 +432,8 @@ function App() {
                     <input 
                       type="text" 
                       placeholder="Enter your full name" 
-                      value={regForm.fullName} 
-                      onChange={e => setRegForm({ ...regForm, fullName: e.target.value })} 
+                      value={state.regForm.fullName} 
+                      onChange={e => dispatch({ type: 'SET_REG_FIELD', field: 'fullName', value: e.target.value })} 
                       required 
                     />
                   </div>
@@ -403,15 +443,15 @@ function App() {
                     <input 
                       type="email" 
                       placeholder="student@example.com" 
-                      value={regForm.email} 
-                      onChange={e => setRegForm({ ...regForm, email: e.target.value })} 
+                      value={state.regForm.email} 
+                      onChange={e => dispatch({ type: 'SET_REG_FIELD', field: 'email', value: e.target.value })} 
                       required 
                     />
                   </div>
 
                   <div className="form-field">
                     <label>Department *</label>
-                    <select value={regForm.department} onChange={e => setRegForm({ ...regForm, department: e.target.value })} required>
+                    <select value={state.regForm.department} onChange={e => dispatch({ type: 'SET_REG_FIELD', field: 'department', value: e.target.value })} required>
                       <option value="">Select your department</option>
                       <option value="Computer Science">Computer Science</option>
                       <option value="Information Technology">Information Technology</option>
@@ -425,8 +465,8 @@ function App() {
                     <input 
                       type="text" 
                       placeholder="Example: 2" 
-                      value={regForm.yearOfStudy} 
-                      onChange={e => setRegForm({ ...regForm, yearOfStudy: e.target.value })} 
+                      value={state.regForm.yearOfStudy} 
+                      onChange={e => dispatch({ type: 'SET_REG_FIELD', field: 'yearOfStudy', value: e.target.value })} 
                     />
                   </div>
 
@@ -435,8 +475,8 @@ function App() {
                     <input 
                       type="password" 
                       placeholder="Password input example" 
-                      value={regForm.password} 
-                      onChange={e => setRegForm({ ...regForm, password: e.target.value })} 
+                      value={state.regForm.password} 
+                      onChange={e => dispatch({ type: 'SET_REG_FIELD', field: 'password', value: e.target.value })} 
                     />
                     <span className="field-hint">This is a learning component to demonstrate input UI.</span>
                   </div>
@@ -449,8 +489,8 @@ function App() {
                           type="radio" 
                           name="attMode" 
                           value="In-person" 
-                          checked={regForm.attendance === 'In-person'} 
-                          onChange={e => setRegForm({ ...regForm, attendance: e.target.value })} 
+                          checked={state.regForm.attendance === 'In-person'} 
+                          onChange={e => dispatch({ type: 'SET_REG_FIELD', field: 'attendance', value: e.target.value })} 
                         /> In-person
                       </label>
                       <label className="radio-label">
@@ -458,8 +498,8 @@ function App() {
                           type="radio" 
                           name="attMode" 
                           value="Online" 
-                          checked={regForm.attendance === 'Online'} 
-                          onChange={e => setRegForm({ ...regForm, attendance: e.target.value })} 
+                          checked={state.regForm.attendance === 'Online'} 
+                          onChange={e => dispatch({ type: 'SET_REG_FIELD', field: 'attendance', value: e.target.value })} 
                         /> Online
                       </label>
                     </div>
@@ -467,9 +507,9 @@ function App() {
 
                   <div className="form-field col-span-2">
                     <label>Choose an event *</label>
-                    <select value={regForm.eventId} onChange={e => setRegForm({ ...regForm, eventId: e.target.value })} required>
+                    <select value={state.regForm.eventId} onChange={e => dispatch({ type: 'SET_REG_FIELD', field: 'eventId', value: e.target.value })} required>
                       <option value="">Select a campus event</option>
-                      {events.map(ev => (
+                      {state.events.map(ev => (
                         <option key={ev.id} value={ev.id}>{ev.title}</option>
                       ))}
                     </select>
@@ -479,8 +519,8 @@ function App() {
                     <label className="checkbox-label">
                       <input 
                         type="checkbox" 
-                        checked={regForm.accessibility} 
-                        onChange={e => setRegForm({ ...regForm, accessibility: e.target.checked })} 
+                        checked={state.regForm.accessibility} 
+                        onChange={e => dispatch({ type: 'SET_REG_FIELD', field: 'accessibility', value: e.target.checked })} 
                       /> I would like the team to contact me about accessibility support.
                     </label>
                   </div>
@@ -489,8 +529,8 @@ function App() {
                     <label>Message (optional)</label>
                     <textarea 
                       placeholder="Any questions or notes for the event team?" 
-                      value={regForm.message} 
-                      onChange={e => setRegForm({ ...regForm, message: e.target.value })} 
+                      value={state.regForm.message} 
+                      onChange={e => dispatch({ type: 'SET_REG_FIELD', field: 'message', value: e.target.value })} 
                     />
                   </div>
 
@@ -499,34 +539,23 @@ function App() {
                     <button 
                       type="button" 
                       className="btn btn-light" 
-                      onClick={() => setRegForm({
-                        fullName: '',
-                        email: '',
-                        department: '',
-                        yearOfStudy: '',
-                        password: '',
-                        attendance: 'In-person',
-                        eventId: '',
-                        accessibility: false,
-                        message: ''
-                      })}
+                      onClick={() => dispatch({ type: 'RESET_REG_FORM' })}
                     >
                       Reset Form
                     </button>
                   </div>
                 </form>
 
-                {/* Registration Confirmation Banner */}
-                {registrationSuccess && (
+                {state.registrationSuccess && (
                   <div className="confirmation-card">
                     <h4>Registration complete!</h4>
                     <p className="demo-subtext">This is a local demonstration. Your details have not been sent to a server.</p>
                     <ul>
-                      <li>• <strong>Student:</strong> {registrationSuccess.studentName}</li>
-                      <li>• <strong>Email:</strong> {registrationSuccess.email}</li>
-                      <li>• <strong>Department:</strong> {registrationSuccess.department}</li>
-                      <li>• <strong>Event:</strong> {registrationSuccess.eventTitle}</li>
-                      <li>• <strong>Attendance:</strong> {registrationSuccess.attendance}</li>
+                      <li>• <strong>Student:</strong> {state.registrationSuccess.studentName}</li>
+                      <li>• <strong>Email:</strong> {state.registrationSuccess.email}</li>
+                      <li>• <strong>Department:</strong> {state.registrationSuccess.department}</li>
+                      <li>• <strong>Event:</strong> {state.registrationSuccess.eventTitle}</li>
+                      <li>• <strong>Attendance:</strong> {state.registrationSuccess.attendance}</li>
                     </ul>
                   </div>
                 )}
@@ -536,7 +565,6 @@ function App() {
         </>
       )}
 
-      {/* Footer */}
       <footer className="app-footer">
         <div className="footer-brand">CampusConnect</div>
         <p className="footer-sub">Discover events. Meet people. Make memories.</p>
