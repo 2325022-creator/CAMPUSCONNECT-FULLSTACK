@@ -1,0 +1,79 @@
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 80px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.brand {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.nav-links a {
+  margin-left: 24px;
+  text-decoration: none;
+  color: #475569;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+/* Color highlight when active */
+.nav-links a.active {
+  color: #2563eb;
+  background-color: #eff6ff;
+  font-weight: 700;
+}
+
+.nav-links a:hover {
+  color: #2563eb;
+}
+
+.hero {
+  text-align: center;
+  padding: 60px 20px 40px;
+  background: #ffffff;
+}
+
+.subtitle-badge {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.hero-title {
+  font-size: 2.8rem;
+  font-weight: 900;
+  color: #1e1b4b;
+  margin: 10px 0;
+}
+
+.hero-title span {
+  color: #4338ca;
+}
+
+.hero-desc {
+  color: #64748b;
+  max-width: 500px;
+  margin: 0 auto 24px;
+}
+
+.btn-primary {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
